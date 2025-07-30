@@ -1,0 +1,2 @@
+# This file ensures the meta_standards_output directory is tracked in Git
+# The actual output files are ignored but the directory structure is preserved

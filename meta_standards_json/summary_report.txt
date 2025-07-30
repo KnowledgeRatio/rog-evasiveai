@@ -1,0 +1,214 @@
+META COMMUNITY STANDARDS JSON SCRAPING REPORT
+============================================================
+
+Scraping completed: 2025-07-29T08:52:08.274788
+Total sections attempted: 27
+Successfully scraped: 27
+Failed: 0
+Success rate: 100.0%
+
+MAIN PAGE:
+------------------------------
+File: 00_main_page.json
+Status: success
+Characters: 8,729
+
+SUCCESSFUL SECTIONS:
+------------------------------
+✓ Coordinating Harm and Promoting Crime
+  File: 01_Coordinating_Harm_and_Promoting_Crime.json
+  Characters: 13,344
+  Words: 2,011
+  Paragraphs: 104
+  Headings: 118
+
+✓ Dangerous Organisations and Individuals
+  File: 02_Dangerous_Organisations_and_Individuals.json
+  Characters: 24,009
+  Words: 3,609
+  Paragraphs: 147
+  Headings: 126
+
+✓ Fraud, Scams and Deceptive Practices
+  File: 03_Fraud_Scams_and_Deceptive_Practices.json
+  Characters: 20,209
+  Words: 3,091
+  Paragraphs: 116
+  Headings: 114
+
+✓ Restricted Goods and Services
+  File: 04_Restricted_Goods_and_Services.json
+  Characters: 28,082
+  Words: 4,198
+  Paragraphs: 144
+  Headings: 141
+
+✓ Violence and Incitement
+  File: 05_Violence_and_Incitement.json
+  Characters: 15,846
+  Words: 2,423
+  Paragraphs: 104
+  Headings: 131
+
+✓ Adult Sexual Exploitation
+  File: 06_Adult_Sexual_Exploitation.json
+  Characters: 14,355
+  Words: 2,175
+  Paragraphs: 107
+  Headings: 119
+
+✓ Bullying and Harassment
+  File: 07_Bullying_and_Harassment.json
+  Characters: 18,757
+  Words: 2,824
+  Paragraphs: 121
+  Headings: 135
+
+✓ Child Sexual Exploitation, Abuse and Nudity
+  File: 08_Child_Sexual_Exploitation_Abuse_and_Nudity.json
+  Characters: 16,172
+  Words: 2,455
+  Paragraphs: 129
+  Headings: 129
+
+✓ Human Exploitation
+  File: 09_Human_Exploitation.json
+  Characters: 10,854
+  Words: 1,622
+  Paragraphs: 108
+  Headings: 108
+
+✓ Suicide, Self-Injury and Eating Disorders
+  File: 10_Suicide_Self_Injury_and_Eating_Disorders.json
+  Characters: 14,364
+  Words: 2,211
+  Paragraphs: 114
+  Headings: 127
+
+✓ Adult Nudity and Sexual Activity
+  File: 11_Adult_Nudity_and_Sexual_Activity.json
+  Characters: 17,266
+  Words: 2,622
+  Paragraphs: 120
+  Headings: 129
+
+✓ Adult Sexual Solicitation and Sexually Explicit Language
+  File: 12_Adult_Sexual_Solicitation_and_Sexually_Explicit_Language.json
+  Characters: 11,570
+  Words: 1,759
+  Paragraphs: 106
+  Headings: 117
+
+✓ Hateful Conduct
+  File: 13_Hateful_Conduct.json
+  Characters: 17,502
+  Words: 2,656
+  Paragraphs: 121
+  Headings: 138
+
+✓ Privacy Violations
+  File: 14_Privacy_Violations.json
+  Characters: 15,665
+  Words: 2,369
+  Paragraphs: 110
+  Headings: 112
+
+✓ Violent and Graphic Content
+  File: 15_Violent_and_Graphic_Content.json
+  Characters: 16,151
+  Words: 2,480
+  Paragraphs: 155
+  Headings: 140
+
+✓ Account Integrity
+  File: 16_Account_Integrity.json
+  Characters: 11,688
+  Words: 1,778
+  Paragraphs: 106
+  Headings: 121
+
+✓ Authentic Identity Representation
+  File: 17_Authentic_Identity_Representation.json
+  Characters: 9,961
+  Words: 1,510
+  Paragraphs: 101
+  Headings: 103
+
+✓ Cybersecurity
+  File: 18_Cybersecurity.json
+  Characters: 10,603
+  Words: 1,593
+  Paragraphs: 100
+  Headings: 108
+
+✓ Inauthentic Behavior
+  File: 19_Inauthentic_Behavior.json
+  Characters: 13,061
+  Words: 1,972
+  Paragraphs: 109
+  Headings: 111
+
+✓ Memorialisation
+  File: 20_Memorialisation.json
+  Characters: 10,127
+  Words: 1,536
+  Paragraphs: 102
+  Headings: 109
+
+✓ Misinformation
+  File: 21_Misinformation.json
+  Characters: 19,079
+  Words: 2,917
+  Paragraphs: 123
+  Headings: 112
+
+✓ Spam
+  File: 22_Spam.json
+  Characters: 13,094
+  Words: 1,991
+  Paragraphs: 110
+  Headings: 115
+
+✓ Third-Party Intellectual Property Infringement
+  File: 23_Third_Party_Intellectual_Property_Infringement.json
+  Characters: 6,292
+  Words: 890
+  Paragraphs: 80
+  Headings: 52
+
+✓ Using Meta Intellectual Property and Licences
+  File: 24_Using_Meta_Intellectual_Property_and_Licences.json
+  Characters: 9,870
+  Words: 1,482
+  Paragraphs: 102
+  Headings: 101
+
+✓ Additional Protection of Minors
+  File: 25_Additional_Protection_of_Minors.json
+  Characters: 8,236
+  Words: 1,232
+  Paragraphs: 99
+  Headings: 103
+
+✓ Locally Illegal Content, Products or Services
+  File: 26_Locally_Illegal_Content_Products_or_Services.json
+  Characters: 9,071
+  Words: 1,382
+  Paragraphs: 103
+  Headings: 101
+
+✓ User Requests
+  File: 27_User_Requests.json
+  Characters: 8,204
+  Words: 1,225
+  Paragraphs: 99
+  Headings: 102
+
+FAILED SECTIONS:
+------------------------------
+FILE STRUCTURE:
+------------------------------
+JSON files are structured with:
+- metadata: Section info, URL, scraping timestamp, status
+- content: Title, raw text, structured content (headings, paragraphs, lists, links)
+- statistics: Character count, word count, paragraph count, heading count

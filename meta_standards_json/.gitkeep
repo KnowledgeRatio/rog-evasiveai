@@ -1,0 +1,2 @@
+# This file ensures the meta_standards_json directory is tracked in Git
+# The actual JSON files are ignored but the directory structure is preserved
