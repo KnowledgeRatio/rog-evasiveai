@@ -1,0 +1,209 @@
+{
+  "session_info": {
+    "timestamp": "2025-08-02T16:59:40.791582",
+    "total_sections": 27,
+    "successful_sections": 27,
+    "failed_sections": 0,
+    "success_rate": 100.0,
+    "include_main_page": true,
+    "save_to_storage": false,
+    "container_name": null
+  },
+  "storage_urls": {},
+  "sections_summary": {
+    "Coordinating Harm and Promoting Crime": {
+      "status": "success",
+      "character_count": 13344,
+      "word_count": 2011,
+      "paragraph_count": 100,
+      "heading_count": 118
+    },
+    "Dangerous Organisations and Individuals": {
+      "status": "success",
+      "character_count": 24009,
+      "word_count": 3609,
+      "paragraph_count": 143,
+      "heading_count": 126
+    },
+    "Fraud, Scams and Deceptive Practices": {
+      "status": "success",
+      "character_count": 20209,
+      "word_count": 3091,
+      "paragraph_count": 116,
+      "heading_count": 114
+    },
+    "Restricted Goods and Services": {
+      "status": "success",
+      "character_count": 28082,
+      "word_count": 4198,
+      "paragraph_count": 136,
+      "heading_count": 141
+    },
+    "Violence and Incitement": {
+      "status": "success",
+      "character_count": 15846,
+      "word_count": 2423,
+      "paragraph_count": 104,
+      "heading_count": 131
+    },
+    "Adult Sexual Exploitation": {
+      "status": "success",
+      "character_count": 14355,
+      "word_count": 2175,
+      "paragraph_count": 107,
+      "heading_count": 119
+    },
+    "Bullying and Harassment": {
+      "status": "success",
+      "character_count": 18757,
+      "word_count": 2824,
+      "paragraph_count": 120,
+      "heading_count": 135
+    },
+    "Child Sexual Exploitation, Abuse and Nudity": {
+      "status": "success",
+      "character_count": 16172,
+      "word_count": 2455,
+      "paragraph_count": 128,
+      "heading_count": 129
+    },
+    "Human Exploitation": {
+      "status": "success",
+      "character_count": 10854,
+      "word_count": 1622,
+      "paragraph_count": 108,
+      "heading_count": 108
+    },
+    "Suicide, Self-Injury and Eating Disorders": {
+      "status": "success",
+      "character_count": 14364,
+      "word_count": 2211,
+      "paragraph_count": 113,
+      "heading_count": 127
+    },
+    "Adult Nudity and Sexual Activity": {
+      "status": "success",
+      "character_count": 17266,
+      "word_count": 2622,
+      "paragraph_count": 114,
+      "heading_count": 129
+    },
+    "Adult Sexual Solicitation and Sexually Explicit Language": {
+      "status": "success",
+      "character_count": 11570,
+      "word_count": 1759,
+      "paragraph_count": 104,
+      "heading_count": 117
+    },
+    "Hateful Conduct": {
+      "status": "success",
+      "character_count": 17502,
+      "word_count": 2656,
+      "paragraph_count": 120,
+      "heading_count": 138
+    },
+    "Privacy Violations": {
+      "status": "success",
+      "character_count": 15665,
+      "word_count": 2369,
+      "paragraph_count": 109,
+      "heading_count": 112
+    },
+    "Violent and Graphic Content": {
+      "status": "success",
+      "character_count": 16151,
+      "word_count": 2480,
+      "paragraph_count": 151,
+      "heading_count": 140
+    },
+    "Account Integrity": {
+      "status": "success",
+      "character_count": 11688,
+      "word_count": 1778,
+      "paragraph_count": 101,
+      "heading_count": 121
+    },
+    "Authentic Identity Representation": {
+      "status": "success",
+      "character_count": 9961,
+      "word_count": 1510,
+      "paragraph_count": 100,
+      "heading_count": 103
+    },
+    "Cybersecurity": {
+      "status": "success",
+      "character_count": 10603,
+      "word_count": 1593,
+      "paragraph_count": 100,
+      "heading_count": 108
+    },
+    "Inauthentic Behavior": {
+      "status": "success",
+      "character_count": 13061,
+      "word_count": 1972,
+      "paragraph_count": 107,
+      "heading_count": 111
+    },
+    "Memorialisation": {
+      "status": "success",
+      "character_count": 10127,
+      "word_count": 1536,
+      "paragraph_count": 99,
+      "heading_count": 109
+    },
+    "Misinformation": {
+      "status": "success",
+      "character_count": 19079,
+      "word_count": 2917,
+      "paragraph_count": 118,
+      "heading_count": 112
+    },
+    "Spam": {
+      "status": "success",
+      "character_count": 13094,
+      "word_count": 1991,
+      "paragraph_count": 110,
+      "heading_count": 115
+    },
+    "Third-Party Intellectual Property Infringement": {
+      "status": "success",
+      "character_count": 6292,
+      "word_count": 890,
+      "paragraph_count": 80,
+      "heading_count": 52
+    },
+    "Using Meta Intellectual Property and Licences": {
+      "status": "success",
+      "character_count": 9870,
+      "word_count": 1482,
+      "paragraph_count": 99,
+      "heading_count": 101
+    },
+    "Additional Protection of Minors": {
+      "status": "success",
+      "character_count": 8236,
+      "word_count": 1232,
+      "paragraph_count": 99,
+      "heading_count": 103
+    },
+    "Locally Illegal Content, Products or Services": {
+      "status": "success",
+      "character_count": 9071,
+      "word_count": 1382,
+      "paragraph_count": 103,
+      "heading_count": 101
+    },
+    "User Requests": {
+      "status": "success",
+      "character_count": 8204,
+      "word_count": 1225,
+      "paragraph_count": 99,
+      "heading_count": 102
+    }
+  },
+  "main_page_summary": {
+    "status": "success",
+    "character_count": 8729,
+    "word_count": 1279
+  }
+}

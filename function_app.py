@@ -1,8 +1,8 @@
 """
-Meta Community Standards Scraper - Azure Function Version
+Meta Community Standards Scraper - Azure Function with Storage Version
 
-This version is adapted to run as an Azure Function, returning JSON data
-instead of saving to local files.
+This version saves scraped content to Azure Blob Storage while also returning
+JSON responses via HTTP endpoints.
 """
 
 import azure.functions as func
@@ -11,10 +11,55 @@ from bs4 import BeautifulSoup
 import json
 import re
 import logging
+import os
+import validators
+import traceback
 from datetime import datetime
 from typing import Dict, Any
+from azure.storage.blob import BlobServiceClient
 
 app = func.FunctionApp()
+
+def get_blob_service_client():
+    """Get Azure Blob Storage client"""
+    connection_string = os.environ.get('AzureWebJobsStorage')
+    if not connection_string:
+        raise ValueError("AzureWebJobsStorage connection string not found")
+    return BlobServiceClient.from_connection_string(connection_string)
+
+def save_to_blob_storage(blob_service_client: BlobServiceClient, container_name: str, 
+                        blob_name: str, content: str, content_type: str = "application/json"):
+    """Save content to Azure Blob Storage"""
+    try:
+        # Create container if it doesn't exist
+        try:
+            blob_service_client.create_container(container_name)
+            logging.info(f"Created container: {container_name}")
+        except Exception:
+            # Container already exists
+            pass
+        
+        # Upload blob
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, 
+            blob=blob_name
+        )
+        
+        blob_client.upload_blob(
+            content, 
+            blob_type="BlockBlob", 
+            content_settings={'content_type': content_type},
+            overwrite=True
+        )
+        
+        # Get blob URL
+        blob_url = blob_client.url
+        logging.info(f"Saved to blob: {blob_name}")
+        return blob_url
+        
+    except Exception as e:
+        logging.error(f"Error saving to blob storage: {str(e)}")
+        raise
 
 def get_page_content(url: str, session: requests.Session) -> BeautifulSoup:
     """Fetch page content with error handling"""
@@ -22,7 +67,7 @@ def get_page_content(url: str, session: requests.Session) -> BeautifulSoup:
         logging.info(f"Fetching: {url}")
         response = session.get(url, timeout=30)
         if response.status_code == 200:
-            return BeautifulSoup(response.content, 'html.parser')
+            return BeautifulSoup(response.content, 'lxml')
         else:
             logging.warning(f"HTTP {response.status_code} for {url}")
             return None
@@ -173,23 +218,27 @@ def get_section_urls() -> Dict[str, str]:
         "User Requests": "https://transparency.meta.com/en-gb/policies/community-standards/user-requests/"
     }
 
-@app.route(route="meta_scraper", auth_level=func.AuthLevel.FUNCTION)
-def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
+@app.route(route="meta_scraper_storage", auth_level=func.AuthLevel.FUNCTION)
+def meta_scraper_storage_function(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Azure Function to scrape Meta Community Standards.
+    Azure Function to scrape Meta Community Standards and save to storage.
     
     Query parameters:
     - sections: comma-separated list of section names to scrape (optional, default: all)
     - include_main: whether to include main page (default: true)
     - format: response format (json or summary, default: json)
+    - save_to_storage: whether to save files to blob storage (default: true)
+    - container_name: blob container name (default: meta-standards)
     """
-    logging.info('Meta scraper function triggered.')
+    logging.info('Meta scraper with storage function triggered.')
     
     try:
         # Parse query parameters
         sections_param = req.params.get('sections')
         include_main = req.params.get('include_main', 'true').lower() == 'true'
         response_format = req.params.get('format', 'json').lower()
+        save_to_storage = req.params.get('save_to_storage', 'true').lower() == 'true'
+        container_name = req.params.get('container_name', 'meta-standards')
         
         # Get all available sections
         all_sections = get_section_urls()
@@ -214,6 +263,19 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
+        # Initialize blob service client if saving to storage
+        blob_service_client = None
+        if save_to_storage:
+            try:
+                blob_service_client = get_blob_service_client()
+            except Exception as e:
+                logging.error(f"Failed to initialize blob storage: {str(e)}")
+                return func.HttpResponse(
+                    json.dumps({"error": f"Storage initialization failed: {str(e)}"}),
+                    status_code=500,
+                    mimetype="application/json"
+                )
+        
         # Results structure
         results = {
             'scraping_session': {
@@ -222,8 +284,11 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
                 'successful_sections': 0,
                 'failed_sections': 0,
                 'success_rate': 0.0,
-                'include_main_page': include_main
+                'include_main_page': include_main,
+                'save_to_storage': save_to_storage,
+                'container_name': container_name if save_to_storage else None
             },
+            'storage_urls': {},
             'data': {}
         }
         
@@ -234,6 +299,20 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
             main_soup = get_page_content(base_url, session)
             main_content = extract_content_json(main_soup, "Main Page", base_url)
             results['data']['main_page'] = main_content
+            
+            # Save main page to storage if enabled
+            if save_to_storage and blob_service_client:
+                try:
+                    blob_name = f"main_page_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    blob_url = save_to_blob_storage(
+                        blob_service_client,
+                        container_name,
+                        blob_name,
+                        json.dumps(main_content, ensure_ascii=False, indent=2)
+                    )
+                    results['storage_urls']['main_page'] = blob_url
+                except Exception as e:
+                    logging.error(f"Failed to save main page to storage: {str(e)}")
         
         # Scrape each section
         successful = 0
@@ -248,12 +327,45 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
             # Store the content
             results['data']['sections'][section_name] = content
             
+            # Save to storage if enabled
+            if save_to_storage and blob_service_client:
+                try:
+                    # Create safe filename
+                    safe_filename = re.sub(r'[^\w\s-]', '', section_name)
+                    safe_filename = re.sub(r'[-\s]+', '_', safe_filename).strip('_')
+                    blob_name = f"sections/{safe_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    
+                    blob_url = save_to_blob_storage(
+                        blob_service_client,
+                        container_name,
+                        blob_name,
+                        json.dumps(content, ensure_ascii=False, indent=2)
+                    )
+                    results['storage_urls'][section_name] = blob_url
+                    logging.info(f"Saved {section_name} to blob storage")
+                except Exception as e:
+                    logging.error(f"Failed to save {section_name} to storage: {str(e)}")
+            
             # Track success/failure
             if content['metadata']['status'] == 'success' and content['statistics']['character_count'] > 200:
                 logging.info(f"Successfully scraped {section_name}")
                 successful += 1
             else:
                 logging.warning(f"Failed to scrape {section_name}")
+        
+        # Save master summary to storage if enabled
+        if save_to_storage and blob_service_client:
+            try:
+                summary_blob_name = f"master_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                summary_blob_url = save_to_blob_storage(
+                    blob_service_client,
+                    container_name,
+                    summary_blob_name,
+                    json.dumps(results, ensure_ascii=False, indent=2)
+                )
+                results['storage_urls']['master_summary'] = summary_blob_url
+            except Exception as e:
+                logging.error(f"Failed to save master summary to storage: {str(e)}")
         
         # Update final statistics
         results['scraping_session']['successful_sections'] = successful
@@ -265,6 +377,7 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
             # Return summary only
             summary = {
                 'session_info': results['scraping_session'],
+                'storage_urls': results['storage_urls'],
                 'sections_summary': {}
             }
             
@@ -298,21 +411,41 @@ def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Error in meta_scraper_function: {str(e)}")
+        logging.error(f"Error in meta_scraper_storage_function: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": f"Internal server error: {str(e)}"}),
             status_code=500,
             mimetype="application/json"
         )
 
+# Keep the original functions for backward compatibility
+@app.route(route="meta_scraper", auth_level=func.AuthLevel.FUNCTION)
+def meta_scraper_function(req: func.HttpRequest) -> func.HttpResponse:
+    """Original function without storage - for backward compatibility"""
+    # Redirect to storage function with save_to_storage=false
+    from urllib.parse import urlencode, parse_qs
+    
+    params = dict(req.params)
+    params['save_to_storage'] = 'false'
+    
+    # Create a new request-like object
+    class MockRequest:
+        def __init__(self, params):
+            self.params = params
+    
+    mock_req = MockRequest(params)
+    return meta_scraper_storage_function(mock_req)
+
 @app.route(route="meta_scraper_single", auth_level=func.AuthLevel.FUNCTION)
 def meta_scraper_single_function(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Azure Function to scrape a single Meta Community Standards section.
+    Azure Function to scrape a single Meta Community Standards section and optionally save to storage.
     
     Query parameters:
     - section: section name to scrape (required)
     - url: custom URL to scrape (optional, overrides predefined URLs)
+    - save_to_storage: whether to save file to blob storage (default: false)
+    - container_name: blob container name (default: meta-standards)
     """
     logging.info('Meta single scraper function triggered.')
     
@@ -320,6 +453,8 @@ def meta_scraper_single_function(req: func.HttpRequest) -> func.HttpResponse:
         # Parse query parameters
         section_name = req.params.get('section')
         custom_url = req.params.get('url')
+        save_to_storage = req.params.get('save_to_storage', 'false').lower() == 'true'
+        container_name = req.params.get('container_name', 'meta-standards')
         
         if not section_name:
             return func.HttpResponse(
@@ -351,10 +486,42 @@ def meta_scraper_single_function(req: func.HttpRequest) -> func.HttpResponse:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
+        # Initialize blob service client if saving to storage
+        blob_service_client = None
+        storage_url = None
+        if save_to_storage:
+            try:
+                blob_service_client = get_blob_service_client()
+            except Exception as e:
+                logging.error(f"Failed to initialize blob storage: {str(e)}")
+                return func.HttpResponse(
+                    json.dumps({"error": f"Storage initialization failed: {str(e)}"}),
+                    status_code=500,
+                    mimetype="application/json"
+                )
+        
         # Scrape the section
         logging.info(f"Scraping: {section_name} from {url}")
         soup = get_page_content(url, session)
         content = extract_content_json(soup, section_name, url)
+        
+        # Save to storage if enabled
+        if save_to_storage and blob_service_client:
+            try:
+                # Create safe filename
+                safe_filename = re.sub(r'[^\w\s-]', '', section_name)
+                safe_filename = re.sub(r'[-\s]+', '_', safe_filename).strip('_')
+                blob_name = f"single_sections/{safe_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                
+                storage_url = save_to_blob_storage(
+                    blob_service_client,
+                    container_name,
+                    blob_name,
+                    json.dumps(content, ensure_ascii=False, indent=2)
+                )
+                logging.info(f"Saved {section_name} to blob storage")
+            except Exception as e:
+                logging.error(f"Failed to save {section_name} to storage: {str(e)}")
         
         # Add session metadata
         response_data = {
@@ -362,7 +529,10 @@ def meta_scraper_single_function(req: func.HttpRequest) -> func.HttpResponse:
                 'timestamp': datetime.now().isoformat(),
                 'section_name': section_name,
                 'url': url,
-                'status': content['metadata']['status']
+                'status': content['metadata']['status'],
+                'save_to_storage': save_to_storage,
+                'container_name': container_name if save_to_storage else None,
+                'storage_url': storage_url
             },
             'data': content
         }
