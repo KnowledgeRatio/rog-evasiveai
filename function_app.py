@@ -20,6 +20,46 @@ from azure.storage.blob import BlobServiceClient
 
 app = func.FunctionApp()
 
+@app.timer_trigger(schedule="0 0 9 * * 1", arg_name="myTimer", run_on_startup=False,
+              use_monitor=False) 
+def weekly_meta_scraper_timer(myTimer: func.TimerRequest) -> None:
+    """
+    Timer trigger function that runs weekly on Mondays at 9 AM UTC
+    Cron expression: "0 0 9 * * 1" = second minute hour day month day-of-week
+    """
+    if myTimer.past_due:
+        logging.info('The timer is past due!')
+
+    logging.info('Weekly Meta Community Standards scraper started')
+    
+    try:
+        # Get blob storage client
+        blob_service_client = get_blob_service_client()
+        
+        # Create container name with timestamp
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        container_name = f"meta-standards-weekly-{timestamp}"
+        
+        # Call the core scraping logic
+        result = perform_scraping_operation(
+            blob_service_client=blob_service_client,
+            container_name=container_name,
+            sections_param=None,  # Scrape all sections
+            include_main=True,
+            save_to_storage=True,
+            response_format='summary'
+        )
+        
+        logging.info(f'Weekly scraping completed successfully')
+        logging.info(f'Total sections: {result["scraping_session"].get("total_sections", 0)}')
+        logging.info(f'Successful sections: {result["scraping_session"].get("successful_sections", 0)}')
+        logging.info(f'Success rate: {result["scraping_session"].get("success_rate", 0):.1f}%')
+        logging.info(f'Container: {container_name}')
+        
+    except Exception as e:
+        logging.error(f'Weekly scraping failed: {str(e)}')
+        logging.error(traceback.format_exc())
+
 def get_blob_service_client():
     """Get Azure Blob Storage client"""
     connection_string = os.environ.get('AzureWebJobsStorage')
@@ -60,6 +100,128 @@ def save_to_blob_storage(blob_service_client: BlobServiceClient, container_name:
     except Exception as e:
         logging.error(f"Error saving to blob storage: {str(e)}")
         raise
+
+def perform_scraping_operation(blob_service_client, container_name, sections_param=None, 
+                             include_main=True, save_to_storage=True, response_format='json'):
+    """
+    Core scraping operation that can be called from HTTP triggers or timer triggers
+    """
+    # Get all available sections
+    all_sections = get_section_urls()
+    
+    # Determine which sections to scrape
+    if sections_param:
+        requested_sections = [s.strip() for s in sections_param.split(',')]
+        section_urls = {name: url for name, url in all_sections.items() 
+                       if name in requested_sections}
+        if not section_urls:
+            raise ValueError("No valid sections found in request")
+    else:
+        section_urls = all_sections
+    
+    # Setup session
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    })
+    
+    # Results structure
+    results = {
+        'scraping_session': {
+            'timestamp': datetime.now().isoformat(),
+            'total_sections': len(section_urls),
+            'successful_sections': 0,
+            'failed_sections': 0,
+            'success_rate': 0.0,
+            'include_main_page': include_main,
+            'save_to_storage': save_to_storage,
+            'container_name': container_name if save_to_storage else None
+        },
+        'storage_urls': {},
+        'data': {}
+    }
+    
+    # Scrape main page if requested
+    if include_main:
+        logging.info("Scraping main community standards page...")
+        base_url = "https://transparency.meta.com/en-gb/policies/community-standards/"
+        main_soup = get_page_content(base_url, session)
+        main_content = extract_content_json(main_soup, "Main Page", base_url)
+        results['data']['main_page'] = main_content
+        
+        # Save main page to storage if enabled
+        if save_to_storage and blob_service_client:
+            try:
+                blob_name = f"main_page_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                blob_url = save_to_blob_storage(
+                    blob_service_client,
+                    container_name,
+                    blob_name,
+                    json.dumps(main_content, ensure_ascii=False, indent=2)
+                )
+                results['storage_urls']['main_page'] = blob_url
+            except Exception as e:
+                logging.error(f"Failed to save main page to storage: {str(e)}")
+    
+    # Scrape each section
+    successful = 0
+    results['data']['sections'] = {}
+    
+    for section_name, url in section_urls.items():
+        logging.info(f"Scraping: {section_name}")
+        
+        soup = get_page_content(url, session)
+        content = extract_content_json(soup, section_name, url)
+        
+        # Store the content
+        results['data']['sections'][section_name] = content
+        
+        # Save to storage if enabled
+        if save_to_storage and blob_service_client:
+            try:
+                # Create safe filename
+                safe_filename = re.sub(r'[^\w\s-]', '', section_name)
+                safe_filename = re.sub(r'[-\s]+', '_', safe_filename).strip('_')
+                blob_name = f"sections/{safe_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                
+                blob_url = save_to_blob_storage(
+                    blob_service_client,
+                    container_name,
+                    blob_name,
+                    json.dumps(content, ensure_ascii=False, indent=2)
+                )
+                results['storage_urls'][section_name] = blob_url
+                logging.info(f"Saved {section_name} to blob storage")
+            except Exception as e:
+                logging.error(f"Failed to save {section_name} to storage: {str(e)}")
+        
+        # Track success/failure
+        if content['metadata']['status'] == 'success' and content['statistics']['character_count'] > 200:
+            logging.info(f"Successfully scraped {section_name}")
+            successful += 1
+        else:
+            logging.warning(f"Failed to scrape {section_name}")
+    
+    # Save master summary to storage if enabled
+    if save_to_storage and blob_service_client:
+        try:
+            summary_blob_name = f"master_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            summary_blob_url = save_to_blob_storage(
+                blob_service_client,
+                container_name,
+                summary_blob_name,
+                json.dumps(results, ensure_ascii=False, indent=2)
+            )
+            results['storage_urls']['master_summary'] = summary_blob_url
+        except Exception as e:
+            logging.error(f"Failed to save master summary to storage: {str(e)}")
+    
+    # Update final statistics
+    results['scraping_session']['successful_sections'] = successful
+    results['scraping_session']['failed_sections'] = len(section_urls) - successful
+    results['scraping_session']['success_rate'] = (successful / len(section_urls)) * 100 if section_urls else 0
+    
+    return results
 
 def get_page_content(url: str, session: requests.Session) -> BeautifulSoup:
     """Fetch page content with error handling"""
@@ -240,29 +402,6 @@ def meta_scraper_storage_function(req: func.HttpRequest) -> func.HttpResponse:
         save_to_storage = req.params.get('save_to_storage', 'true').lower() == 'true'
         container_name = req.params.get('container_name', 'meta-standards')
         
-        # Get all available sections
-        all_sections = get_section_urls()
-        
-        # Determine which sections to scrape
-        if sections_param:
-            requested_sections = [s.strip() for s in sections_param.split(',')]
-            section_urls = {name: url for name, url in all_sections.items() 
-                           if name in requested_sections}
-            if not section_urls:
-                return func.HttpResponse(
-                    json.dumps({"error": "No valid sections found in request"}),
-                    status_code=400,
-                    mimetype="application/json"
-                )
-        else:
-            section_urls = all_sections
-        
-        # Setup session
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        
         # Initialize blob service client if saving to storage
         blob_service_client = None
         if save_to_storage:
@@ -276,101 +415,15 @@ def meta_scraper_storage_function(req: func.HttpRequest) -> func.HttpResponse:
                     mimetype="application/json"
                 )
         
-        # Results structure
-        results = {
-            'scraping_session': {
-                'timestamp': datetime.now().isoformat(),
-                'total_sections': len(section_urls),
-                'successful_sections': 0,
-                'failed_sections': 0,
-                'success_rate': 0.0,
-                'include_main_page': include_main,
-                'save_to_storage': save_to_storage,
-                'container_name': container_name if save_to_storage else None
-            },
-            'storage_urls': {},
-            'data': {}
-        }
-        
-        # Scrape main page if requested
-        if include_main:
-            logging.info("Scraping main community standards page...")
-            base_url = "https://transparency.meta.com/en-gb/policies/community-standards/"
-            main_soup = get_page_content(base_url, session)
-            main_content = extract_content_json(main_soup, "Main Page", base_url)
-            results['data']['main_page'] = main_content
-            
-            # Save main page to storage if enabled
-            if save_to_storage and blob_service_client:
-                try:
-                    blob_name = f"main_page_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    blob_url = save_to_blob_storage(
-                        blob_service_client,
-                        container_name,
-                        blob_name,
-                        json.dumps(main_content, ensure_ascii=False, indent=2)
-                    )
-                    results['storage_urls']['main_page'] = blob_url
-                except Exception as e:
-                    logging.error(f"Failed to save main page to storage: {str(e)}")
-        
-        # Scrape each section
-        successful = 0
-        results['data']['sections'] = {}
-        
-        for section_name, url in section_urls.items():
-            logging.info(f"Scraping: {section_name}")
-            
-            soup = get_page_content(url, session)
-            content = extract_content_json(soup, section_name, url)
-            
-            # Store the content
-            results['data']['sections'][section_name] = content
-            
-            # Save to storage if enabled
-            if save_to_storage and blob_service_client:
-                try:
-                    # Create safe filename
-                    safe_filename = re.sub(r'[^\w\s-]', '', section_name)
-                    safe_filename = re.sub(r'[-\s]+', '_', safe_filename).strip('_')
-                    blob_name = f"sections/{safe_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    
-                    blob_url = save_to_blob_storage(
-                        blob_service_client,
-                        container_name,
-                        blob_name,
-                        json.dumps(content, ensure_ascii=False, indent=2)
-                    )
-                    results['storage_urls'][section_name] = blob_url
-                    logging.info(f"Saved {section_name} to blob storage")
-                except Exception as e:
-                    logging.error(f"Failed to save {section_name} to storage: {str(e)}")
-            
-            # Track success/failure
-            if content['metadata']['status'] == 'success' and content['statistics']['character_count'] > 200:
-                logging.info(f"Successfully scraped {section_name}")
-                successful += 1
-            else:
-                logging.warning(f"Failed to scrape {section_name}")
-        
-        # Save master summary to storage if enabled
-        if save_to_storage and blob_service_client:
-            try:
-                summary_blob_name = f"master_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                summary_blob_url = save_to_blob_storage(
-                    blob_service_client,
-                    container_name,
-                    summary_blob_name,
-                    json.dumps(results, ensure_ascii=False, indent=2)
-                )
-                results['storage_urls']['master_summary'] = summary_blob_url
-            except Exception as e:
-                logging.error(f"Failed to save master summary to storage: {str(e)}")
-        
-        # Update final statistics
-        results['scraping_session']['successful_sections'] = successful
-        results['scraping_session']['failed_sections'] = len(section_urls) - successful
-        results['scraping_session']['success_rate'] = (successful / len(section_urls)) * 100 if section_urls else 0
+        # Perform the scraping operation
+        results = perform_scraping_operation(
+            blob_service_client=blob_service_client,
+            container_name=container_name,
+            sections_param=sections_param,
+            include_main=include_main,
+            save_to_storage=save_to_storage,
+            response_format=response_format
+        )
         
         # Format response based on requested format
         if response_format == 'summary':

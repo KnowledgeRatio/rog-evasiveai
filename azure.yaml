@@ -1,0 +1,8 @@
+name: meta-standards-scraper
+infra:
+  provider: bicep
+services:
+  meta-scraper-function:
+    project: ./
+    host: function
+    language: python
